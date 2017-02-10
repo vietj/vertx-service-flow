@@ -39,23 +39,24 @@ public class Example {
 
     Flow flow = Flow
       .flow(vertx)
-      .withCircuitBreaker()
       .withDiscovery(discovery);
 
     // Simple
     flow.route(router.get("/foo/bar"), httpFlow -> {
-      httpFlow.request(new JsonObject().put("name", "hello-service"), HttpMethod.GET, "/", ar -> {
+      httpFlow.httpRequest(new JsonObject().put("name", "hello-service"), HttpMethod.GET, "/", ar -> {
         if (ar.succeeded()) {
           ar.result().addQueryParam("foo", httpFlow.pathParam("foo")).send(ar2 -> {
             //
           });
+        } else {
+          // Use fallback
         }
       });
     });
 
     // Nested
     flow.route(router.get("/foo/bar"), httpFlow -> {
-      httpFlow.request(new JsonObject().put("name", "hello-service"), HttpMethod.GET, "/", ar -> {
+      httpFlow.httpRequest(new JsonObject().put("name", "hello-service"), HttpMethod.GET, "/", ar -> {
         if (ar.succeeded()) {
           ar.result().addQueryParam("foo", "bar").send(ar2 -> {
             if (ar.succeeded()) {
@@ -70,7 +71,7 @@ public class Example {
 
     // Parallel
     flow.from(eventBus.<String>consumer("foobar"), messageFlow -> {
-      messageFlow.request(new JsonObject().put("name", "hello-service"), HttpMethod.GET, "/", ar -> {
+      messageFlow.httpRequest(new JsonObject().put("name", "hello-service"), HttpMethod.GET, "/", ar -> {
         if (ar.succeeded()) {
           ar.result().addQueryParam("foo", messageFlow.body()).send(ar2 -> {
             //

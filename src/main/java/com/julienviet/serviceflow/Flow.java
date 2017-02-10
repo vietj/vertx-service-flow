@@ -1,6 +1,8 @@
 package com.julienviet.serviceflow;
 
 import com.julienviet.serviceflow.impl.FlowImpl;
+import io.vertx.circuitbreaker.CircuitBreaker;
+import io.vertx.circuitbreaker.CircuitBreakerOptions;
 import io.vertx.codegen.annotations.Fluent;
 import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.Handler;
@@ -19,8 +21,10 @@ public interface Flow {
     return new FlowImpl(vertx);
   }
 
+  CircuitBreaker breaker(String name);
+
   @Fluent
-  Flow withCircuitBreaker();
+  Flow withBreaker(CircuitBreakerOptions options);
 
   @Fluent
   Flow withDiscovery(ServiceDiscovery discovery);

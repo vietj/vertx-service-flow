@@ -7,7 +7,6 @@ import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.MessageProducer;
-import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.streams.ReadStream;
@@ -15,26 +14,26 @@ import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.codec.BodyCodec;
-import io.vertx.servicediscovery.ServiceDiscovery;
-import io.vertx.servicediscovery.ServiceReference;
+import io.vertx.servicediscovery.types.EventBusService;
 
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
  */
 public class ServiceFlowBase implements ServiceFlow {
 
-  private final ServiceDiscovery discovery;
+  private final FlowImpl flow;
 
-  public ServiceFlowBase(ServiceDiscovery discovery) {
-    this.discovery = discovery;
+  public ServiceFlowBase(FlowImpl flow) {
+    this.flow = flow;
   }
 
   @Override
-  public void request(JsonObject filter, HttpMethod method, String requestURI, Handler<AsyncResult<HttpRequest<Buffer>>> handler) {
-    discovery.getRecord(filter, ar -> {
-      if (ar.succeeded() && ar.result() != null) {
-        ServiceReference ref = discovery.<HttpClient>getReference(ar.result());
-        WebClient client = ref.getAs(WebClient.class);
+  public void httpRequest(JsonObject filter, HttpMethod method, String requestURI, Handler<AsyncResult<HttpRequest<Buffer>>> handler) {
+    String breakerName = filter.getString("name");
+    flow.getServiceRef(filter, breakerName, ar -> {
+      LookupResult a = ar.result();
+      if (ar.succeeded()) {
+        WebClient client = a.ref.getAs(WebClient.class);
         HttpRequest<Buffer> proxy = new HttpRequest<Buffer>() {
           HttpRequest<Buffer> req = client.request(method, requestURI);
           @Override
@@ -93,7 +92,14 @@ public class ServiceFlowBase implements ServiceFlow {
           }
           Handler<AsyncResult<HttpResponse<Buffer>>> wrap(Handler<AsyncResult<HttpResponse<Buffer>>> handler) {
             return ar -> {
-              ref.release();
+              a.ref.release();
+              if (a.breaker != null) {
+                if (ar.succeeded()) {
+                  a.breaker.complete();
+                } else {
+                  a.breaker.fail(ar.cause());
+                }
+              }
               handler.handle(ar);
             };
           }
@@ -124,6 +130,7 @@ public class ServiceFlowBase implements ServiceFlow {
         };
         handler.handle(Future.succeededFuture(proxy));
       } else {
+
         handler.handle(Future.failedFuture(ar.cause()));
       }
     });
@@ -131,12 +138,28 @@ public class ServiceFlowBase implements ServiceFlow {
 
   @Override
   public void sendMessage(JsonObject filter, Object msg) {
-    discovery.getRecord(filter, ar -> {
-      if (ar.succeeded() && ar.result() != null) {
-        ServiceReference ref = discovery.<HttpClient>getReference(ar.result());
-        MessageProducer producer = ref.getAs(MessageProducer.class);
+    flow.getServiceRef(filter, filter.getString("name"), ar -> {
+      if (ar.succeeded()) {
+        LookupResult a = ar.result();
+        MessageProducer producer = a.ref.getAs(MessageProducer.class);
         producer.send(msg);
       }
     });
+  }
+
+  @Override
+  public <T> void getServiceProxy(JsonObject filter, Class<T> clazz, Handler<AsyncResult<T>> handler) {
+    flow.getServiceRef(filter, filter.getString("name"), ar -> {
+      if (ar.succeeded()) {
+        EventBusService.getProxy(flow.discovery, clazz, ar2 -> {
+          T t = ar2.result();
+          handler.handle(Future.succeededFuture(t));
+
+        });
+      }
+    });
+
+
+
   }
 }

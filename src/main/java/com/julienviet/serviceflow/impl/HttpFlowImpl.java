@@ -1,6 +1,7 @@
 package com.julienviet.serviceflow.impl;
 
 import com.julienviet.serviceflow.HttpFlow;
+import io.vertx.circuitbreaker.CircuitBreakerOptions;
 import io.vertx.codegen.annotations.CacheReturn;
 import io.vertx.codegen.annotations.Fluent;
 import io.vertx.codegen.annotations.GenIgnore;
@@ -21,7 +22,6 @@ import io.vertx.ext.web.ParsedHeaderValues;
 import io.vertx.ext.web.Route;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
-import io.vertx.servicediscovery.ServiceDiscovery;
 
 import java.util.List;
 import java.util.Map;
@@ -34,8 +34,8 @@ public class HttpFlowImpl extends ServiceFlowBase implements HttpFlow {
 
   private final RoutingContext context;
 
-  HttpFlowImpl(RoutingContext context, ServiceDiscovery discovery) {
-    super(discovery);
+  HttpFlowImpl(FlowImpl flow, RoutingContext context) {
+    super(flow);
     this.context = context;
   }
 

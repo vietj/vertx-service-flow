@@ -14,8 +14,10 @@ import io.vertx.ext.web.client.HttpRequest;
 @VertxGen(concrete = false)
 public interface ServiceFlow {
 
-  void request(JsonObject filter, HttpMethod method, String requestURI, Handler<AsyncResult<HttpRequest<Buffer>>> handler);
+  void httpRequest(JsonObject filter, HttpMethod method, String requestURI, Handler<AsyncResult<HttpRequest<Buffer>>> handler);
 
   void sendMessage(JsonObject filter, Object msg);
+
+  <T> void getServiceProxy(JsonObject filter, Class<T> clazz, Handler<AsyncResult<T>> handler);
 
 }
